@@ -2,6 +2,14 @@ from functools import reduce
 
 Num = (int, float, complex)
 
+def toint(x):
+    if isinstance(x, float) and int(x) == x:
+        return int(x)
+    elif isinstance(x, complex):
+        return complex(toint(x.real), toint(x.imag))
+    else:
+        return x
+
 def totup(x):
     if isinstance(x, Num):
         return (x,)
@@ -19,7 +27,7 @@ class Matrix(object):
             a = []
             for i in range(self.col):
                 if i < len(x):
-                    a.append(x[i])
+                    a.append(toint(x[i]))
                 else:
                     a.append(0)
             return tuple(a)
@@ -58,7 +66,7 @@ class Matrix(object):
     def __add__(self, other):
         def recadd(x, y):
             if isinstance(x, Num) and isinstance(y, Num):
-                return x + y
+                return toint(x + y)
             elif isinstance(x, tuple) and isinstance(y, tuple):
                 return tuple(recadd(x[i], y[i]) for i in range(len(x)))
             elif isinstance(x, Matrix) and isinstance(y, Matrix):
@@ -85,7 +93,7 @@ class Matrix(object):
     def __sub__(self, other):
         def recsub(x, y):
             if isinstance(x, Num) and isinstance(y, Num):
-                return x - y
+                return toint(x - y)
             elif isinstance(x, tuple) and isinstance(y, tuple):
                 return tuple(recsub(x[i], y[i]) for i in range(len(x)))
             elif isinstance(x, Matrix) and isinstance(y, Matrix):
@@ -104,10 +112,10 @@ class Matrix(object):
     
     def __mul__(self, other):
         if isinstance(other, Num):
-            return Matrix(tuple(tuple(self[i][j]*other for j in range(self.col)) for i in range(self.row)))
+            return Matrix(tuple(tuple(toint(self[i][j]*other) for j in range(self.col)) for i in range(self.row)))
         if isinstance(other, Matrix):
             if self.col == other.row:
-                return Matrix(tuple(tuple(sum(self[i][k] * other.T()[j][k] for k in range(self.col)) for j in range(other.col)) for i in range(self.row)))
+                return Matrix(tuple(tuple(toint(sum(self[i][k] * other.T()[j][k] for k in range(self.col))) for j in range(other.col)) for i in range(self.row)))
             else:
                 raise ValueError("cannot multiply two matrices with unmatched column and row")
     
@@ -117,7 +125,7 @@ class Matrix(object):
         if isinstance(num, Num):
             return self * (1/num)
         else:
-            raise TypeError("unsupported operand type(s) for *") 
+            raise TypeError("unsupported operand type(s) for /") 
     
     def minor(self, idr, idc):
         return Matrix(tuple(tuple(self[i][j] for j in totup(idc)) for i in totup(idr)))
@@ -129,9 +137,9 @@ class Matrix(object):
     def det(self):
         if self.row == self.col:
             if self.row == 1:
-                return self[0][0]
+                return toint(self[0][0])
             else:
-                return sum(self[0][j] * self.cofactor(0, j).det * ((-1)**j) for j in range(self.col))
+                return toint(sum(self[0][j] * self.cofactor(0, j).det * ((-1)**j) for j in range(self.col)))
         else:
             raise ValueError("only square matrices have determinants")
     
@@ -147,7 +155,7 @@ class Matrix(object):
                 if num == 1:
                     return self
                 if num == -1:
-                    return self.companion()*(1/self.det)
+                    return self.companion()/self.det
                 else:
                     return self * (self ** (num - 1))   
             else:
