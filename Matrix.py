@@ -154,8 +154,11 @@ class Matrix(object):
             if isinstance(num, Num):
                 if num == 1:
                     return self
-                if num == -1:
-                    return self.companion()/self.det
+                elif num == -1:
+                    if self.det != 0:
+                        return self.companion()/self.det
+                    else:
+                        raise ValueError("matrices with zero determinants do not have inverse matrix")
                 else:
                     return self * (self ** (num - 1))   
             else:
