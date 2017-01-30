@@ -18,20 +18,46 @@ def totup(x):
     else:
         raise ValueError("index should be number or tuple, list of numbers")
 
+def zeros(m, n):
+    return Matrix(tuple(tuple(0 for i in range(m)) for j in range(n)))
+
 class Matrix(object):
     
     def __init__(self, Mtuple = ((0,),)):
-        self.row = len(Mtuple)
-        self.col = max(len(i) for i in Mtuple)
-        def fill(x):
-            a = []
-            for i in range(self.col):
-                if i < len(x):
-                    a.append(toint(x[i]))
+        Unit = (Num, Matrix)
+        def toMtx(x):
+            if isinstance(x, Num):
+                return Matrix(((x,),))
+            elif isinstance(x, (tuple, list)):
+                if min(isinstance(i, Unit) for i in x):
+                    return Matrix((tuple(x),))
                 else:
-                    a.append(0)
-            return tuple(a)
-        self.tup = tuple(map(fill, Mtuple))
+                    return Matrix(tuple(x))
+                return Matrix(x.tup)
+            else:
+                return x
+        if isinstance(Mtuple, Num):
+            Mtuple = ((Mtuple,),)
+        if len(Mtuple) == 1 and len(Mtuple[0]) == 1 and isinstance(Mtuple[0][0], Num):
+            self.row = self.col = 1
+            self.tup = ((toint(Mtuple[0][0]),),)
+        else:
+            p = list(filter(lambda x: len(x) == max(len(i) for i in Mtuple), Mtuple))[0]
+            def fill(x):
+                a = []
+                for k in range(len(p)):
+                    if k < len(x):
+                        a.append(toMtx(x[k]))
+                    else:
+                        a.append(zeros(a[0].row, toMtx(p[k]).col))
+                return tuple(a)
+            Mtuple = tuple(map(fill, Mtuple))
+            if min(reduce(lambda x, y: x + y, (tuple(j.row == Mtuple[i][0].row for j in Mtuple[i]) for i in range(len(Mtuple))))) and min(reduce(lambda x, y: x + y, (tuple(Mtuple[i][j].col == Mtuple[0][j].col for i in range(len(Mtuple))) for j in range(len(p))))):
+                self.row = reduce(lambda x, y: x + y, (Mtuple[i][0].row for i in range(len(Mtuple))))
+                self.col = reduce(lambda x, y: x + y, (Mtuple[0][j].col for j in range(len(p))))
+                self.tup = reduce(lambda x, y: x + y, (tuple(reduce(lambda x, y: x + y, (Mtuple[i][j].tup[k] for j in range(len(p)))) for k in range(len(Mtuple[i][0].tup))) for i in range(len(Mtuple))))
+            else:
+                raise ValueError("unsupported partitioned matrix")
     
     def __str__(self):
         self.tup
@@ -127,10 +153,10 @@ class Matrix(object):
         else:
             raise TypeError("unsupported operand type(s) for /") 
     
-    def minor(self, idr, idc):
+    def submatrix(self, idr, idc):
         return Matrix(tuple(tuple(self[i][j] for j in totup(idc)) for i in totup(idr)))
     
-    def cofactor(self, idr, idc):
+    def comsubmtx(self, idr, idc):
         return Matrix(tuple(tuple(self[i][j] for j in range(self.col) if j not in totup(idc)) for i in range(self.row) if i not in totup(idr)))
     
     @property
@@ -139,13 +165,19 @@ class Matrix(object):
             if self.row == 1:
                 return toint(self[0][0])
             else:
-                return toint(sum(self[0][j] * self.cofactor(0, j).det * ((-1)**j) for j in range(self.col)))
+                return toint(sum(self[0][j] * self.comsubmtx(0, j).det * ((-1)**j) for j in range(self.col)))
         else:
             raise ValueError("only square matrices have determinants")
     
+    def minor(self, idr, idc):
+        return self.submatrix(idr, idc).det
+    
+    def cofactor(self, idr, idc):
+        return self.comsubmtx(idr, idc).det * ((-1)**(sum(totup(idr))+sum(totup(idc))+len(totup(idr))+len(totup(idc))))
+    
     def companion(self):
         if self.row == self.col:
-            return Matrix(tuple(tuple(self.cofactor(i, j).det * ((-1)**(i+j)) for j in range(self.col)) for i in range(self.row))).T()
+            return Matrix(tuple(tuple(self.comsubmtx(i, j).det * ((-1)**(i+j)) for j in range(self.col)) for i in range(self.row))).T()
         else:
             raise ValueError("only square matrices have companions")
     
@@ -165,3 +197,8 @@ class Matrix(object):
                 raise TypeError("unsupported operand type(s) for ** or pow()")
         else:
             raise ValueError("only square matrices can be powered")
+    
+    def inverse(self):
+        return self**(-1)
+    
+    
