@@ -13,17 +13,17 @@ def toint(x):
 def totup(x):
     if isinstance(x, Num):
         return (x,)
-    elif isinstance(x, (list, tuple)) and reduce(lambda y, z: y and z, tuple(isinstance(i, Num) for i in x)):
+    elif isinstance(x, (list, tuple, range)) and reduce(lambda y, z: y and z, tuple(isinstance(i, Num) for i in x)):
         return tuple(x)
     else:
         raise ValueError("index should be number or tuple, list of numbers")
 
 def zeros(m, n):
-    return Matrix(tuple(tuple(0 for i in range(m)) for j in range(n)))
+    return Matrix(tuple(tuple(0 for i in range(n)) for j in range(m)))
 
 class Matrix(object):
     
-    def __init__(self, Mtuple = ((0,),)):
+    def __init__(self, Mtuple = (())):
         Unit = (Num, Matrix)
         def toMtx(x):
             if isinstance(x, Num):
@@ -36,58 +36,82 @@ class Matrix(object):
                 return Matrix(x.tup)
             else:
                 return x
-        if isinstance(Mtuple, Num):
-            Mtuple = ((Mtuple,),)
-        if len(Mtuple) == 1 and len(Mtuple[0]) == 1 and isinstance(Mtuple[0][0], Num):
-            self.row = self.col = 1
-            self.tup = ((toint(Mtuple[0][0]),),)
+        if Mtuple == (()):
+            self.row = 0
+            self.col = 0
+            self.tup = (())
+            self.delta = False
         else:
-            p = list(filter(lambda x: len(x) == max(len(i) for i in Mtuple), Mtuple))[0]
-            def fill(x):
-                a = []
-                for k in range(len(p)):
-                    if k < len(x):
-                        a.append(toMtx(x[k]))
-                    else:
-                        a.append(zeros(a[0].row, toMtx(p[k]).col))
-                return tuple(a)
-            Mtuple = tuple(map(fill, Mtuple))
-            if min(reduce(lambda x, y: x + y, (tuple(j.row == Mtuple[i][0].row for j in Mtuple[i]) for i in range(len(Mtuple))))) and min(reduce(lambda x, y: x + y, (tuple(Mtuple[i][j].col == Mtuple[0][j].col for i in range(len(Mtuple))) for j in range(len(p))))):
-                self.row = reduce(lambda x, y: x + y, (Mtuple[i][0].row for i in range(len(Mtuple))))
-                self.col = reduce(lambda x, y: x + y, (Mtuple[0][j].col for j in range(len(p))))
-                self.tup = reduce(lambda x, y: x + y, (tuple(reduce(lambda x, y: x + y, (Mtuple[i][j].tup[k] for j in range(len(p)))) for k in range(len(Mtuple[i][0].tup))) for i in range(len(Mtuple))))
+            self.delta = True
+            if isinstance(Mtuple, Num):
+                Mtuple = ((Mtuple,),)
+            if isinstance(Mtuple, (tuple, list)):
+                if min(isinstance(i, (tuple, list, Unit)) for i in Mtuple) and max(not isinstance(i, (tuple, list)) for i in Mtuple):
+                    Mtuple = (Mtuple,)
+            if len(Mtuple) == 1 and len(Mtuple[0]) == 1 and isinstance(Mtuple[0][0], Num):
+                self.row = self.col = 1
+                self.tup = ((toint(Mtuple[0][0]),),)
             else:
-                raise ValueError("unsupported partitioned matrix")
+                p = list(filter(lambda x: len(x) == max(len(i) for i in Mtuple), Mtuple))[0]
+                def fill(x):
+                    a = []
+                    for k in range(len(p)):
+                        if k < len(x):
+                            a.append(toMtx(x[k]))
+                        else:
+                            a.append(zeros(a[0].row, toMtx(p[k]).col))
+                    return tuple(a)
+                Mtuple = tuple(map(fill, Mtuple))
+                if min(reduce(lambda x, y: x + y, (tuple(j.row == Mtuple[i][0].row for j in Mtuple[i]) for i in range(len(Mtuple))))) and min(reduce(lambda x, y: x + y, (tuple(Mtuple[i][j].col == Mtuple[0][j].col for i in range(len(Mtuple))) for j in range(len(p))))):
+                    self.row = reduce(lambda x, y: x + y, (Mtuple[i][0].row for i in range(len(Mtuple))))
+                    self.col = reduce(lambda x, y: x + y, (Mtuple[0][j].col for j in range(len(p))))
+                    self.tup = reduce(lambda x, y: x + y, (tuple(reduce(lambda x, y: x + y, (Mtuple[i][j].tup[k] for j in range(len(p)))) for k in range(len(Mtuple[i][0].tup))) for i in range(len(Mtuple))))
+                else:
+                    raise ValueError("unsupported partitioned matrix")
     
     def __str__(self):
-        self.tup
-        def Mstr(x):
-            def Mdel(y):
-                y.pop(0)
-                return y
-            if len(x) == 0:
-                return ''
-            else:
-                return str(x[0]) + '\t' + Mstr(Mdel(x))
-        return reduce(lambda x, y: x + '\n' + y, map(Mstr, map(list, self.tup)))
+        if self.delta:
+            def Mstr(x):
+                def Mdel(y):
+                    y.pop(0)
+                    return y
+                if len(x) == 0:
+                    return ''
+                else:
+                    return str(x[0]) + '\t' + Mstr(Mdel(x))
+            return reduce(lambda x, y: x + '\n' + y, map(Mstr, map(list, self.tup)))
+        else:
+            return ''
     
     __repr__ = __str__
     
     @property
     def len(self):
-        return (self.row, self.col)
+        if self.row == self.col:
+            return self.row
+        else:
+            return '{0} * {1}'.format(self.row, self.col)
     
     def Row(self, n):
-        return self.tup[n]
+        if self.delta:
+            return self.tup[n]
+        else:
+            raise ValueError("the matrix is an empty matrix!")
     
     def Col(self, n):
-        return [self.tup[i][n] for i in range(len(self.tup))]
+        if self.delta:
+            return [self.tup[i][n] for i in range(len(self.tup))]
+        else:
+            raise ValueError("the matrix is an empty matrix!")
     
     def __getitem__(self, n):
-        return self.tup[n]
+        if self.delta:
+            return self.tup[n]
+        else:
+            raise ValueError("the matrix is an empty matrix!")
     
     def T(self):
-        return Matrix([self.Col(i) for i in range(self.col)])
+        return Matrix(tuple(self.Col(i) for i in range(self.col)))
     
     def __add__(self, other):
         def recadd(x, y):
@@ -159,13 +183,76 @@ class Matrix(object):
     def comsubmtx(self, idr, idc):
         return Matrix(tuple(tuple(self[i][j] for j in range(self.col) if j not in totup(idc)) for i in range(self.row) if i not in totup(idr)))
     
+    def rowechelon(self):
+        def tupsub(x, y):
+            return tuple(x[i] - y[i] for i in range(len(x)))
+        def tupmul(x, n):
+            return tuple(x[i] * n for i in range(len(x)))
+        if self.row == 1 or self.row == 0:
+            return Matrix(self.tup)
+        elif self.col == 1:
+            if min(self.tup[i][0] == 0 for i in range(self.row)):
+                return Matrix(self.tup)
+            else:
+                p = tuple(filter(lambda x: x[0] != 0, self.tup))[0]
+                return Matrix((p, (zeros(self.row - 1, 1),)))
+        else:
+            if min(self.tup[i][0] == 0 for i in range(self.row)):
+                return Matrix(((self.submatrix(range(self.row), 0), self.submatrix(range(self.row), range(1,self.col)).rowechelon()),))
+            else:
+                p = tuple(filter(lambda x: self.tup[x][0] != 0,(i for i in range(self.row))))[0]
+                if p == 0:
+                    def dtup(x, y):
+                        if x[0] == 0:
+                            return x
+                        else:
+                            return tupsub(x, tupmul(y, x[0]/y[0]))
+                    t = Matrix(((self.Row(0),), (Matrix(tuple(map(dtup, self.submatrix(range(1, self.row), range(self.col)).tup, tuple(self[0] for i in range(1, self.row))))),)))
+                    return Matrix(((t[0][0], t[0][1:]), (zeros(self.row - 1, 1), t.comsubmtx(0, 0).rowechelon())))
+                else:
+                    return Matrix(((Matrix((self.Row(p),)),), (self.submatrix(tuple(filter(lambda x: x != p, range(self.row))), range(self.col)),))).rowechelon()
+    
+    @property
+    def k(self):
+        def tupsub(x, y):
+            return tuple(x[i] - y[i] for i in range(len(x)))
+        def tupmul(x, n):
+            return tuple(x[i] * n for i in range(len(x)))
+        if self.row == 1 or self.row == 0:
+            return 1
+        elif self.col == 1:
+            if min(self.tup[i][0] == 0 for i in range(self.row)):
+                return 1
+            else:
+                p = tuple(filter(lambda x: x[0] != 0, self.tup))[0]
+                return -1
+        else:
+            if min(self.Col(0)[i] == 0 for i in range(self.row)):
+                return self.submatrix(range(self.row), range(1,self.col)).k
+            else:
+                p = tuple(filter(lambda x: self.tup[x][0] != 0,(i for i in range(self.row))))[0]
+                if p == 0:
+                    def dtup(x, y):
+                        if x[0] == 0:
+                            return x
+                        else:
+                            return tupsub(x, tupmul(y, x[0]/y[0]))
+                    t = Matrix(((self.Row(0),), (Matrix(tuple(map(dtup, self.submatrix(range(1, self.row), range(self.col)).tup, tuple(self[0] for i in range(1, self.row))))),)))
+                    return t.comsubmtx(0, 0).k
+                else:
+                    return -Matrix(((Matrix((self.Row(p),)),), (self.submatrix(tuple(filter(lambda x: x != p, range(self.row))), range(self.col)),))).k
+    
+    @property
+    def rank(self):
+        r = 0
+        while self.rowechelon()[r] != tuple(0 for i in range(self.col)):
+            r += 1
+        return r
+    
     @property
     def det(self):
         if self.row == self.col:
-            if self.row == 1:
-                return toint(self[0][0])
-            else:
-                return toint(sum(self[0][j] * self.comsubmtx(0, j).det * ((-1)**j) for j in range(self.col)))
+            return reduce(lambda x, y: x * y, (self.rowechelon()[i][i] for i in range(self.row))) * self.k
         else:
             raise ValueError("only square matrices have determinants")
     
