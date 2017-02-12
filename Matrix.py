@@ -21,6 +21,9 @@ def totup(x):
 def zeros(m, n):
     return Matrix(tuple(tuple(0 for i in range(n)) for j in range(m)))
 
+def I(n):
+    return Matrix(tuple(tuple(((i == j) * 1) for i in range(n)) for j in range(n)))
+
 class Matrix(object):
     
     def __init__(self, Mtuple = (())):
@@ -71,6 +74,7 @@ class Matrix(object):
     
     def __str__(self):
         if self.delta:
+            q = max(max(len(str(self[i][j])) for j in range(self.col)) for i in range(self.row))
             def Mstr(x):
                 def Mdel(y):
                     y.pop(0)
@@ -78,7 +82,7 @@ class Matrix(object):
                 if len(x) == 0:
                     return ''
                 else:
-                    return str(x[0]) + '\t' + Mstr(Mdel(x))
+                    return '%*.*s' % (- q - 2, q, str(x[0])) + Mstr(Mdel(x))
             return reduce(lambda x, y: x + '\n' + y, map(Mstr, map(list, self.tup)))
         else:
             return ''
@@ -87,10 +91,7 @@ class Matrix(object):
     
     @property
     def len(self):
-        if self.row == self.col:
-            return self.row
-        else:
-            return '{0} * {1}'.format(self.row, self.col)
+        return '{0} * {1}'.format(self.row, self.col)
     
     def Row(self, n):
         if self.delta:
@@ -183,22 +184,23 @@ class Matrix(object):
     def comsubmtx(self, idr, idc):
         return Matrix(tuple(tuple(self[i][j] for j in range(self.col) if j not in totup(idc)) for i in range(self.row) if i not in totup(idr)))
     
-    def rowechelon(self):
+    @property
+    def __krowechelon(self):
         def tupsub(x, y):
             return tuple(x[i] - y[i] for i in range(len(x)))
         def tupmul(x, n):
             return tuple(x[i] * n for i in range(len(x)))
         if self.row == 1 or self.row == 0:
-            return Matrix(self.tup)
+            return (1, Matrix(self.tup))
         elif self.col == 1:
             if min(self.tup[i][0] == 0 for i in range(self.row)):
-                return Matrix(self.tup)
+                return (1, Matrix(self.tup))
             else:
                 p = tuple(filter(lambda x: x[0] != 0, self.tup))[0]
-                return Matrix((p, (zeros(self.row - 1, 1),)))
+                return (-1, Matrix((p, (zeros(self.row - 1, 1),))))
         else:
             if min(self.tup[i][0] == 0 for i in range(self.row)):
-                return Matrix(((self.submatrix(range(self.row), 0), self.submatrix(range(self.row), range(1,self.col)).rowechelon()),))
+                return (self.submatrix(range(self.row), range(1,self.col)).__krowechelon[0], Matrix(((self.submatrix(range(self.row), 0), self.submatrix(range(self.row), range(1,self.col)).__krowechelon[1]),)))
             else:
                 p = tuple(filter(lambda x: self.tup[x][0] != 0,(i for i in range(self.row))))[0]
                 if p == 0:
@@ -208,39 +210,16 @@ class Matrix(object):
                         else:
                             return tupsub(x, tupmul(y, x[0]/y[0]))
                     t = Matrix(((self.Row(0),), (Matrix(tuple(map(dtup, self.submatrix(range(1, self.row), range(self.col)).tup, tuple(self[0] for i in range(1, self.row))))),)))
-                    return Matrix(((t[0][0], t[0][1:]), (zeros(self.row - 1, 1), t.comsubmtx(0, 0).rowechelon())))
+                    return (t.comsubmtx(0, 0).__krowechelon[0], Matrix(((t[0][0], t[0][1:]), (zeros(self.row - 1, 1), t.comsubmtx(0, 0).__krowechelon[1]))))
                 else:
-                    return Matrix(((Matrix((self.Row(p),)),), (self.submatrix(tuple(filter(lambda x: x != p, range(self.row))), range(self.col)),))).rowechelon()
+                    return ((-1)**p*Matrix(((Matrix((self.Row(p),)),), (self.submatrix(tuple(filter(lambda x: x != p, range(self.row))), range(self.col)),))).__krowechelon[0], Matrix(((Matrix((self.Row(p),)),), (self.submatrix(tuple(filter(lambda x: x != p, range(self.row))), range(self.col)),))).__krowechelon[1])
+    
+    def rowechelon(self):
+        return self.__krowechelon[1]
     
     @property
     def k(self):
-        def tupsub(x, y):
-            return tuple(x[i] - y[i] for i in range(len(x)))
-        def tupmul(x, n):
-            return tuple(x[i] * n for i in range(len(x)))
-        if self.row == 1 or self.row == 0:
-            return 1
-        elif self.col == 1:
-            if min(self.tup[i][0] == 0 for i in range(self.row)):
-                return 1
-            else:
-                p = tuple(filter(lambda x: x[0] != 0, self.tup))[0]
-                return -1
-        else:
-            if min(self.Col(0)[i] == 0 for i in range(self.row)):
-                return self.submatrix(range(self.row), range(1,self.col)).k
-            else:
-                p = tuple(filter(lambda x: self.tup[x][0] != 0,(i for i in range(self.row))))[0]
-                if p == 0:
-                    def dtup(x, y):
-                        if x[0] == 0:
-                            return x
-                        else:
-                            return tupsub(x, tupmul(y, x[0]/y[0]))
-                    t = Matrix(((self.Row(0),), (Matrix(tuple(map(dtup, self.submatrix(range(1, self.row), range(self.col)).tup, tuple(self[0] for i in range(1, self.row))))),)))
-                    return t.comsubmtx(0, 0).k
-                else:
-                    return -Matrix(((Matrix((self.Row(p),)),), (self.submatrix(tuple(filter(lambda x: x != p, range(self.row))), range(self.col)),))).k
+        return self.__krowechelon[0]
     
     @property
     def rank(self):
@@ -252,7 +231,7 @@ class Matrix(object):
     @property
     def det(self):
         if self.row == self.col:
-            return reduce(lambda x, y: x * y, (self.rowechelon()[i][i] for i in range(self.row))) * self.k
+            return toint(reduce(lambda x, y: x * y, (self.rowechelon()[i][i] for i in range(self.row))) * self.k)
         else:
             raise ValueError("only square matrices have determinants")
     
@@ -288,4 +267,9 @@ class Matrix(object):
     def inverse(self):
         return self**(-1)
     
-    
+    def convolution(self, other):
+        m1, n1 = self.row, self.col
+        m2, n2 = other.row, other.col
+        def MA(i, j):
+            return sum(sum(self[k][l] * other[i-k][j-l] for k in range(max(0, i-m2+1), min(i+1, m1))) for l in range(max(0, j-n2+1), min(j+1, n1)))
+        return Matrix(tuple(tuple(MA(i, j) for j in range(n1+n2-1)) for i in range(m1+m2-1)))
