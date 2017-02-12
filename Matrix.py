@@ -3,10 +3,15 @@ from functools import reduce
 Num = (int, float, complex)
 
 def toint(x):
-    if isinstance(x, float) and int(x) == x:
+    if isinstance(x, float) and abs(int(x) - x) < 1e-15:
         return int(x)
     elif isinstance(x, complex):
-        return complex(toint(x.real), toint(x.imag))
+        r = toint(x.real)
+        i = toint(x.imag)
+        if i == 0:
+            return r
+        else:
+            return complex(toint(x.real), toint(x.imag))
     else:
         return x
 
