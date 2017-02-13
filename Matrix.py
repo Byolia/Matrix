@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+
+'Exercise module'
+__author__ = 'Byolia'
+
+
 from functools import reduce
 
 Num = (int, float, complex)

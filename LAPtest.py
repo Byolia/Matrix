@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+
+'A test Laplace filter'
+__author__ = 'Byolia'
+
 from PIL import Image
 from functools import partial
 from Matrix import *
