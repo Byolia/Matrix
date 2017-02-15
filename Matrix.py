@@ -29,6 +29,12 @@ def totup(x):
     else:
         raise ValueError("index should be number or tuple, list of numbers")
 
+def tupsub(x, y):
+    return tuple(x[i] - y[i] for i in range(len(x)))
+
+def tupmul(x, n):
+    return tuple(x[i] * n for i in range(len(x)))
+
 def zeros(m, n):
     return Matrix(tuple(tuple(0 for i in range(n)) for j in range(m)))
 
@@ -197,10 +203,6 @@ class Matrix(object):
     
     @property
     def __krowechelon(self):
-        def tupsub(x, y):
-            return tuple(x[i] - y[i] for i in range(len(x)))
-        def tupmul(x, n):
-            return tuple(x[i] * n for i in range(len(x)))
         if self.row == 1 or self.row == 0:
             return (1, Matrix(self.tup))
         elif self.col == 1:
@@ -235,7 +237,7 @@ class Matrix(object):
     @property
     def rank(self):
         r = 0
-        while self.rowechelon()[r] != tuple(0 for i in range(self.col)):
+        while r < self.row and self.rowechelon()[r] != tuple(0 for i in range(self.col)):
             r += 1
         return r
     
@@ -265,7 +267,9 @@ class Matrix(object):
                     return self
                 elif num == -1:
                     if self.det != 0:
-                        return self.companion()/self.det
+                        i = Matrix(((self, I(self.row)),)).__rwechlnpls[1]
+                        im = Matrix(tuple(tupmul(i.tup[j], 1/i.tup[j][j]) for j in range(self.row)))
+                        return im.submatrix(range(self.row), range(self.col, self.col*2))
                     else:
                         raise ValueError("matrices with zero determinants do not have inverse matrix")
                 else:
@@ -284,3 +288,63 @@ class Matrix(object):
         def MA(i, j):
             return sum(sum(self[k][l] * other[i-k][j-l] for k in range(max(0, i-m2+1), min(i+1, m1))) for l in range(max(0, j-n2+1), min(j+1, n1)))
         return Matrix(tuple(tuple(MA(i, j) for j in range(n1+n2-1)) for i in range(m1+m2-1)))
+    
+    @property
+    def __rwechlnpls(self):
+        t = self.rowechelon()
+        r = self.rank
+        il = []
+        for i in range(r):
+            j = i
+            while t[i][j] == 0:
+                j += 1
+            il.append(j)
+        n = []
+        for i in range(r):
+            z = list(t.tup[i])
+            for j in range(i+1, r):
+                if z[il[j]] != 0:
+                    z = tupsub(z, tupmul(t.tup[j], z[il[j]]/t.tup[j][il[j]]))
+            n.append(tuple(z))
+        for i in range(r, self.row):
+            n.append(tuple(0 for j in range(self.col)))
+        return il, Matrix(tuple(n))
+    
+    def solution(self, *array):
+        l = len(array)
+        row, col = self.row, self.col
+        r = self.rank
+        if l == 0:
+            t = Matrix(((self, Matrix(tuple((0,) for i in range(row))))))
+        else:
+            t = Matrix(((self, Matrix(array).T()),))
+        if t.rank != self.rank:
+            return ()
+        il, t = t.__rwechlnpls
+        iln = list(i for i in range(self.col) if i not in il)
+        mut = []
+        for i in range(col, t.col):
+            q = [0 for j in range(col)]
+            for k in range(r):
+                q[il[k]] = toint(t.Col(i)[k]/t[k][il[k]])
+            mut.append(tuple(q))
+        mu = Matrix(tuple(mut)).T()
+        print('The solution has the form: mu + eta * K')
+        print('Particular solution:')
+        print('mu = ')
+        print(mu)
+        etat = []
+        for i in iln:
+            q = [0 for j in range(col)]
+            q[i] = -1
+            for k in range(r):
+                q[il[k]] = toint(t.Col(i)[k]/t[k][il[k]])
+            etat.append(tuple(q))
+        eta = Matrix(tuple(etat)).T()
+        print('General solution:')
+        print('eta * K, where eta = ')
+        print(eta)
+        print('and K is an arbitrary {0}*{1} matrix'.format(eta.col, l))
+
+a = Matrix(((1,2,-1,3),(0,1,-2,4),(2,4,-2,1),(0,0,0,6)))
+b = ((2,2,-1,6),(1,3,-3,6))
